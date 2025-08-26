@@ -68,7 +68,6 @@ void BeginScriptingMode(){
 }
 
 void BeginFileMode(string filename){
-	// 1. validate file 
 	ifstream file;
 	file.open(filename, ios::in);
 
@@ -83,5 +82,4 @@ void BeginFileMode(string filename){
 	while(getline(file, line)){
 		run(line);
 	}
-
 }
