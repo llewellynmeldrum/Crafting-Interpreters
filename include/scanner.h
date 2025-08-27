@@ -2,7 +2,13 @@
 #define SCANNER_H
 #include "clox_common.h"
 
-int sc_current_line;
+
+typedef struct Scanner_t {
+	const char *start;
+	char *current;
+	int line;
+} Scanner_t;
+Scanner_t scanner;
 
 typedef enum {
 	// Single-character tokens.
@@ -28,6 +34,9 @@ typedef enum {
 } TokenType;
 
 
+
+Scanner_t Scanner(char* source);
+
 typedef struct Token {
 	TokenType type;
 	const char *start;
@@ -35,7 +44,7 @@ typedef struct Token {
 	int line;
 } Token;
 
-Token ScanNextToken(char* input);
+Token ScanNextToken();
 
 size_t SYSCALL_FILESIZE(const char* filename);
 char *readFile(const char* filename);

@@ -7,8 +7,8 @@
 	exit(EXIT_FAILURE);\
 	}while(0);
 
-#define PRINTF_ERR_LN(ln, fmt, ...)do{\
-	fprintf(stderr,"Error on line %d:\n", ln);\
+#define PRINTF_ERR_LN(fmt, ...)do{\
+	fprintf(stderr,"Error on line %d:\n", scanner.line);\
 	fprintf(stderr,fmt "\n", ##__VA_ARGS__);\
 	}while(0);
 
