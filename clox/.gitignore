@@ -1,0 +1,6 @@
+.*
+!.gitignore
+clox
+test.lox
+compile_commands.json
+/build
