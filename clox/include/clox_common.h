@@ -15,7 +15,7 @@
 #define error(fmt, ...)do{\
 	fprintf(stderr,"[line %d] Error:\n", scanner.line);\
 	fprintf(stderr,fmt "\n", ##__VA_ARGS__);\
-	}while(0);
+	}while(0)
 
 #define MAX_LINE_LEN	1024
 

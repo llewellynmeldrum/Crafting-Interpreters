@@ -10,6 +10,13 @@
 /* Files.c/h */
 static void runFile(const char* filename);
 static void runPrompt();
+void printverbstr(const char* str) {
+	for (size_t i = 0; i < strlen(str); i++) {
+		char *c = printVerboseChar(str[i]);
+		printf("%s", c);
+		free(c);
+	}
+}
 
 int main(int argc, char** argv) {
 	if (argc > 2) PRINTF_FATAL_ERR("Error! Usage: %s [source.lox] | %s\n", PROG, PROG);
@@ -26,7 +33,7 @@ void run(char* source) {
 
 	int tokcount = 0;
 	do {
-		fprintf(stderr, "Scanning for token (%d):\n", tokcount);
+//		fprintf(stderr, "Scanning for token (%d):\n", tokcount);
 		token = ScanNextToken();
 
 		if (token.type == TOKEN_ERROR)
@@ -43,6 +50,7 @@ void run(char* source) {
 void runFile(const char* filename) {
 	printf("ENTERED FILE MODE:\n");
 	char *input_bytes = readFile(filename);
+	//printverbstr(input_bytes);
 	run(input_bytes);
 	free(input_bytes);
 }
@@ -80,7 +88,8 @@ void runPrompt() {
 	while(1) {
 		printf("> ");
 		if (!fgets(line, sizeof(line), stdin)) break;
-		stripWhiteSpace(line);
+		printverbstr(line);
+		//stripWhiteSpace(line);
 		run(line);
 	}
 }

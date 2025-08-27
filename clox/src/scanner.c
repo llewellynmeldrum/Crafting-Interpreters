@@ -8,7 +8,8 @@
 #include <sys/stat.h>
 
 #define MAX_TOKEN_LEN 2
-#define TOKEN_LIST_INIT_CAPACITY 10
+#define TOKEN_LIST_INIT_CAPACITY 20
+// TODO: RESIZING IS BROKEN BRO CANT EVEN MAKE A DYNAMIC ARRAY
 
 #define ERR_TOKEN (Token) { .type= TOKEN_ERROR }
 #define UNKNOWN_TOKEN(Token) { TOKEN_EOF, tok_str, 0, scanner.line, }
@@ -16,6 +17,9 @@
 bool Scanner_match(char target);
 char Scanner_advance();
 bool Scanner_isAtEnd();
+char Scanner_peek();
+bool Scanner_match(char target);
+
 char *Token_to_string(Token_t t);
 
 size_t SYSCALL_FILESIZE(const char* filename) {
@@ -59,6 +63,7 @@ Token_t Token(TokenType t, size_t l) {
 	};
 }
 
+#define EMPTY_TOKEN() (Token_t){.type=TOKEN_EMPTY}
 // @ Creates a Token based on scanner.current and forward searching
 Token_t Scanner_scanToken() {
 
@@ -69,7 +74,7 @@ Token_t Scanner_scanToken() {
 		return Token(TOKEN_EOF, 1);
 	}
 	switch (c) {
-	// single char lexemes
+	// 1 char lexemes 
 	case '(': return Token(TOKEN_LEFT_PAREN , 1); break;
 	case ')': return Token(TOKEN_RIGHT_PAREN, 1); break;
 	case '{': return Token(TOKEN_LEFT_BRACE , 1); break;
@@ -81,6 +86,7 @@ Token_t Scanner_scanToken() {
 	case ';': return Token(TOKEN_SEMICOLON	, 1); break;
 	case '*': return Token(TOKEN_STAR	, 1); break;
 
+	// 1-2 char 
 	case '!':
 		if (Scanner_match('='))
 			return Token(TOKEN_BANG_EQUAL, 2);
@@ -101,12 +107,43 @@ Token_t Scanner_scanToken() {
 			return Token(TOKEN_LESS_EQUAL, 2);
 		else return Token(TOKEN_LESS, 1);
 		break;
+	//
+	case '/':
+		if (!Scanner_match('/')){
+			return Token(TOKEN_SLASH, 1);
+			break;
+		}
+		char cmdstr[256];
+		cmdstr[0]='\0';
+		while (Scanner_peek()!='\n' && !Scanner_isAtEnd()){
+			char* vb = printVerboseChar(Scanner_peek());
+			strcat(cmdstr,vb);
+			free(vb);
+			Scanner_advance(); // consume the character, unless its newline
+		}
+		{Token_t t = Token(TOKEN_EMPTY, 0);
+		fprintf(stderr,"Inside comment, found: '%s'\n",cmdstr);
+				return t;
+				break;
+		}
 
-
+	case ' ': 
+	case '\r':
+	case '\t':
+		return EMPTY_TOKEN();
+		break;
+	case '\n':
+		scanner.line++;
+		return EMPTY_TOKEN();
+		break;
 	default:
-		error("Encountered unknown token near --> '%c'\n", c);
+		{
+		char *verch = printVerboseChar(c);
+		error("Encountered unknown token near --> '%s'\n", verch);
+		free(verch);
 		return Token(TOKEN_ERROR, -1);
 		break;
+		}
 	}
 
 
@@ -134,8 +171,16 @@ Scanner_t Scanner(char* source) {
 
 // @ Can trigger FATAL_ERR (and exit)
 Token_t ScanNextToken() {
-	Token_t newtoken = Scanner_scanToken();
-	printToken("TOKEN:", newtoken);
+	Token_t newtoken;
+	do {
+		newtoken = Scanner_scanToken();
+		if (Scanner_isAtEnd()) {
+			return (Token_t) {
+				.type = TOKEN_EOF
+			};
+		}
+	} while(newtoken.type == TOKEN_EMPTY);
+	printToken("\tTOKEN:", newtoken);
 	return newtoken;
 }
 
@@ -147,6 +192,11 @@ char Scanner_advance() {
 	char c = *scanner.current;
 	scanner.current++;
 	return c;
+}
+
+char Scanner_peek() {
+	if (Scanner_isAtEnd()) return '\0';
+	return *scanner.current;
 }
 
 bool Scanner_match(char target) {
@@ -171,7 +221,8 @@ void resize_tokens(TokenList_t* tl) {
 
 // @ Can trigger FATAL_ERR (and exit)
 void TokenList_add(TokenList_t* tl, Token_t t) {
-	fprintf(stderr, "adding token: %d\n", t.start[0]);
+//	fprintf(stderr, "adding token: %d\n", t.start[0]);
+	//	causing segfault if eof
 	if (tl->count >= tl->capacity) {
 		resize_tokens(tl);
 	}
@@ -201,6 +252,7 @@ void TokenList_destroy(TokenList_t* tl) {
 
 // *INDENT-OFF* - we use a lot of weird switch statements
 char* Token_to_string(Token_t t){
+	bool verbose = true;
 	char type_str[32];
 
 	switch (t.type){
@@ -245,26 +297,40 @@ char* Token_to_string(Token_t t){
 		case TOKEN_TRUE         : strcpy(type_str, "TOKEN_TRUE");	break;
 		case TOKEN_VAR          : strcpy(type_str, "TOKEN_VAR");	break;
 		case TOKEN_WHILE        : strcpy(type_str, "TOKEN_WHILE");	break;
+		case TOKEN_SLASH	: strcpy(type_str, "TOKEN_SLASH");	break;
 	// Errors 
 		case TOKEN_ERROR        : strcpy(type_str, "TOKEN_ERROR");	break;
 		case TOKEN_EOF          : strcpy(type_str, "TOKEN_EOF");	break;
+		case TOKEN_EMPTY : strcpy(type_str, "TOKEN_EMPTY");	break;
 
 		default	:
 			printf("ERROR! to_string() on unrecognized token.\n");
 			break;
 	}
 
-	char plaintext[128];
+	const size_t plaintext_sz = 128;
+	char plaintext[plaintext_sz];
+	for (size_t i = 0; i<plaintext_sz; i++){
+		plaintext[i] = '\0';
+	}
 	if (t.length < 0){
 		PRINTF_FATAL_ERR("Tried to print token with L<%d (L=%d)",MAX_TOKEN_LEN,t.length);
 	}
 	if (t.length > MAX_TOKEN_LEN){
 		PRINTF_FATAL_ERR("Tried to print token with L>%d (L=%d)",MAX_TOKEN_LEN,t.length);
 	}
-	strncpy(plaintext, t.start, t.length);
 
-	char temp[128]; // sorta unsafe
-	sprintf(temp, "%s, '%s' (l=%d)",type_str, plaintext,t.length);
+	if (t.length ==0 ){
+		strcpy(plaintext, "");
+	} else {
+		strncpy(plaintext, t.start, t.length);
+	}
+
+	char temp[256]; // sorta unsafe
+	if (verbose){sprintf(temp, "%s, '%s' (l=%d), %p | %p",type_str, plaintext,t.length,t.start,t.start+t.length);}
+	else{sprintf(temp, "%s, '%s' (l=%d)",type_str, plaintext,t.length);}
+	//
+
 
 	char* buf = malloc(strlen(temp)+1);
 	strcpy(buf,temp);
