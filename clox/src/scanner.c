@@ -7,10 +7,16 @@
 #include <string.h>
 #include <sys/stat.h>
 
-#define TOKEN_LIST_INIT_CAPACITY 2
+#define MAX_TOKEN_LEN 2
+#define TOKEN_LIST_INIT_CAPACITY 10
 
 #define ERR_TOKEN (Token) { .type= TOKEN_ERROR }
 #define UNKNOWN_TOKEN(Token) { TOKEN_EOF, tok_str, 0, scanner.line, }
+
+bool Scanner_match(char target);
+char Scanner_advance();
+bool Scanner_isAtEnd();
+char *Token_to_string(Token_t t);
 
 size_t SYSCALL_FILESIZE(const char* filename) {
 	struct stat st;
@@ -20,23 +26,23 @@ size_t SYSCALL_FILESIZE(const char* filename) {
 
 // @ Can trigger FATAL_ERR (and exit)
 char *readFile(const char* filename) {
-	if (!filename || filename[0] == '\0')
-		PRINTF_FATAL_ERR("Filename passed incorrectly to readFile().");
+	if (!filename)
+		PRINTF_FATAL_ERR("NULL string passed to readFile().");
 
 
 	FILE* inputFile = fopen(filename, "r");
 	if (!inputFile)
-		PRINTF_FATAL_ERR("Unable to open file %s.", filename);
+		PRINTF_FATAL_ERR("Unable to open file '%s.'", filename);
 
 	size_t filesize = SYSCALL_FILESIZE(filename);
 	char *source = malloc(filesize * sizeof(char));
 	if (!source)
-		PRINTF_FATAL_ERR("Failed to allocate buffer for file %s.", filename);
+		PRINTF_FATAL_ERR("Failed to allocate buffer for file '%s'.", filename);
 
 
 	size_t n_read = fread(source, sizeof(char), filesize, inputFile);
 	if (n_read != filesize)
-		PRINTF_FATAL_ERR("Failed to read %s, read (%zu/%zu)B.", filename, n_read, filesize);
+		PRINTF_FATAL_ERR("Failed to read '%s', read (%zu/%zu)B.", filename, n_read, filesize);
 
 	fclose(inputFile);
 	return source;
@@ -44,8 +50,157 @@ char *readFile(const char* filename) {
 
 
 
+Token_t Token(TokenType t, size_t l) {
+	return(Token_t) {
+		.line = scanner.line,
+		.start = scanner.current - l,
+		.type = t,
+		.length = l,
+	};
+}
+
+// @ Creates a Token based on scanner.current and forward searching
+Token_t Scanner_scanToken() {
+
+	// *INDENT-OFF*
+	char c = Scanner_advance();
+	if (c=='\0'){
+		fprintf(stderr, "Scanner encountered EOF\n");
+		return Token(TOKEN_EOF, 1);
+	}
+	switch (c) {
+	// single char lexemes
+	case '(': return Token(TOKEN_LEFT_PAREN , 1); break;
+	case ')': return Token(TOKEN_RIGHT_PAREN, 1); break;
+	case '{': return Token(TOKEN_LEFT_BRACE , 1); break;
+	case '}': return Token(TOKEN_RIGHT_BRACE, 1); break;
+	case ',': return Token(TOKEN_COMMA	, 1); break;
+	case '.': return Token(TOKEN_DOT	, 1); break;
+	case '-': return Token(TOKEN_MINUS	, 1); break;
+	case '+': return Token(TOKEN_PLUS	, 1); break;
+	case ';': return Token(TOKEN_SEMICOLON	, 1); break;
+	case '*': return Token(TOKEN_STAR	, 1); break;
+
+	case '!':
+		if (Scanner_match('='))
+			return Token(TOKEN_BANG_EQUAL, 2);
+		else return Token(TOKEN_BANG, 1);
+		break;
+	case '=':
+		if (Scanner_match('='))
+			return Token(TOKEN_EQUAL_EQUAL, 2);
+		else return Token(TOKEN_EQUAL, 1);
+		break;
+	case '>':
+		if (Scanner_match('='))
+			return Token(TOKEN_GREATER_EQUAL, 2);
+		else return Token(TOKEN_GREATER, 1);
+		break;
+	case '<':
+		if (Scanner_match('='))
+			return Token(TOKEN_LESS_EQUAL, 2);
+		else return Token(TOKEN_LESS, 1);
+		break;
+
+
+	default:
+		error("Encountered unknown token near --> '%c'\n", c);
+		return Token(TOKEN_ERROR, -1);
+		break;
+	}
+
+
+
+	error("FLOW CONTROL ERROR: Reached end of addToken execution.\n");
+	return Token(TOKEN_ERROR, -1);
+	//*INDENT-ON*
+}
+
+void printToken(const char* prefix, Token_t t) {
+	char *tokstr = Token_to_string(t);
+	printf("%s%s\n", prefix, tokstr);
+	free(tokstr);
+}
+
+Scanner_t Scanner(char* source) {
+	return (Scanner_t) {
+		.start = source,
+		.current = source,
+		.line = 1,
+		.length = strlen(source),
+	};
+}
+
+
+// @ Can trigger FATAL_ERR (and exit)
+Token_t ScanNextToken() {
+	Token_t newtoken = Scanner_scanToken();
+	printToken("TOKEN:", newtoken);
+	return newtoken;
+}
+
+bool Scanner_isAtEnd() {
+	return scanner.current >= (scanner.start + scanner.length);
+}
+
+char Scanner_advance() {
+	char c = *scanner.current;
+	scanner.current++;
+	return c;
+}
+
+bool Scanner_match(char target) {
+	if (Scanner_isAtEnd()) return false;
+	if (*scanner.current != target) return false;
+
+	scanner.current++;
+	return true;
+}
+
+
+// @ Can trigger FATAL_ERR (and exit)
+void resize_tokens(TokenList_t* tl) {
+	fprintf(stderr, "Resizing tokenlist.\n");
+	tl->capacity *= 2;
+	void *resized = realloc(tl->data, sizeof(Token_t) * tl->capacity);
+	if (!resized) {
+		free(tl->data);
+		PRINTF_FATAL_ERR("Failed to realloc tokens arr.\n");
+	}
+}
+
+// @ Can trigger FATAL_ERR (and exit)
+void TokenList_add(TokenList_t* tl, Token_t t) {
+	fprintf(stderr, "adding token: %d\n", t.start[0]);
+	if (tl->count >= tl->capacity) {
+		resize_tokens(tl);
+	}
+	tl->data[tl->count++] = t;
+}
+
+
+TokenList_t TokenList() {
+	return (TokenList_t) {
+		.capacity = TOKEN_LIST_INIT_CAPACITY,
+		.count = 0,
+		.data = malloc(sizeof(Token_t) * TOKEN_LIST_INIT_CAPACITY),
+	};
+}
+
+void TokenList_Print(TokenList_t* token_list) {
+	printf("Printing TokenList:\n");
+	for (size_t i = 0; i < token_list->count; i++) {
+		printToken("\t", token_list->data[i]);
+	}
+	printf("\n");
+}
+
+void TokenList_destroy(TokenList_t* tl) {
+	free(tl->data);
+}
+
 // *INDENT-OFF* - we use a lot of weird switch statements
-char* Token_to_string(Token t){
+char* Token_to_string(Token_t t){
 	char type_str[32];
 
 	switch (t.type){
@@ -95,124 +250,23 @@ char* Token_to_string(Token t){
 		case TOKEN_EOF          : strcpy(type_str, "TOKEN_EOF");	break;
 
 		default	:
-			PRINTF_FATAL_ERR("ERROR! to_string() on unrecognized token.");
+			printf("ERROR! to_string() on unrecognized token.\n");
 			break;
 	}
 
+	char plaintext[128];
+	if (t.length < 0){
+		PRINTF_FATAL_ERR("Tried to print token with L<%d (L=%d)",MAX_TOKEN_LEN,t.length);
+	}
+	if (t.length > MAX_TOKEN_LEN){
+		PRINTF_FATAL_ERR("Tried to print token with L>%d (L=%d)",MAX_TOKEN_LEN,t.length);
+	}
+	strncpy(plaintext, t.start, t.length);
+
 	char temp[128]; // sorta unsafe
-	sprintf(temp, "[%s, '%s', l=%01d]",type_str, t.start, t.length);
+	sprintf(temp, "%s, '%s' (l=%d)",type_str, plaintext,t.length);
+
 	char* buf = malloc(strlen(temp)+1);
 	strcpy(buf,temp);
 	return buf;
-}
-
-// @ only supposed to be used by addToken function.
-#define Token(TOK_T, TOK_STR, len)\
-	(Token) { TOKEN_LEFT_PAREN, potential_tok_str, len, scanner.line}
-// @ Creates a Token based on a potential_tok_str 
-Token addToken(const char* potential_tok_str) {
-	if (!potential_tok_str) 
-		return ERR_TOKEN;
-
-	size_t TokenLength = strlen(potential_tok_str);
-
-
-	switch (TokenLength) {
-	case 1:
-		switch (potential_tok_str[0]) {
-		case '(': return Token(TOKEN_LEFT_PAREN , tok_str, 1); break;
-		case ')': return Token(TOKEN_RIGHT_PAREN, tok_str, 1); break;
-		case '{': return Token(TOKEN_LEFT_BRACE , tok_str, 1); break;
-		case '}': return Token(TOKEN_RIGHT_BRACE, tok_str, 1); break;
-		case ',': return Token(TOKEN_COMMA	, tok_str, 1); break;
-		case '.': return Token(TOKEN_DOT	, tok_str, 1); break;
-		case '-': return Token(TOKEN_MINUS	, tok_str, 1); break;
-		case '+': return Token(TOKEN_PLUS	, tok_str, 1); break;
-		case ';': return Token(TOKEN_SEMICOLON	, tok_str, 1); break;
-		case '*': return Token(TOKEN_STAR	, tok_str, 1); break;
-		default:
-			PRINTF_ERR_LN("Encountered unknown len=1 token --> '%c'\n", potential_tok_str[0]);
-			return ERR_TOKEN;
-			break;
-		}
-	break;
-
-	default:
-		PRINTF_ERR_LN("tokenlength=%zu!=1 exiting...\n", TokenLength);
-		return ERR_TOKEN;
-	break;
-	}
-	PRINTF_ERR_LN("FLOW CONTROL ERROR: Reached end of addToken execution.\n");
-	return ERR_TOKEN;
-}
-
-void printToken(const char* prefix, Token t) {
-	char *tokstr = Token_to_string(t);
-	printf("%s%s\n", prefix, tokstr);
-	free(tokstr);
-}
-
-Scanner_t Scanner(char* source) {
-	return (Scanner_t) {
-		.start = source,
-		.current = source,
-		.line = 1,
-	};
-}
-
-int tokcount =0;
-// @ Can trigger FATAL_ERR (and exit)
-Token ScanNextToken() {
-	if (scanner.current == NULL) {
-		// end of input reached.
-		fprintf(stderr, "Ending scan.\n");
-		return (Token) {
-			.type = TOKEN_EOF
-		};
-	}
-	fprintf(stderr, "Scanning for token (%d):\n",tokcount);
-	// test delimiter = ' '
-	const char *delim = " ";
-	char *tok_str = strsep(&scanner.current, delim);
-	fprintf(stderr, "original: %p\n", tok_str);
-
-	fprintf(stderr, "\tToken found:'%s'\n", tok_str);
-	Token newtoken = addToken(tok_str);
-	tokcount++;
-	printToken("TOKEN:", newtoken);
-	return newtoken;
-}
-
-
-
-// @ Can trigger FATAL_ERR (and exit)
-void resize_tokens(TokenList_t* tl) {
-	fprintf(stderr, "Resizing tokenlist.\n");
-	tl->capacity *= 2;
-	void *resized = realloc(tl->data, sizeof(Token) * tl->capacity);
-	if (!resized) {
-		free(tl->data);
-		PRINTF_FATAL_ERR("Failed to realloc tokens arr.\n");
-	}
-}
-
-// @ Can trigger FATAL_ERR (and exit)
-void TokenList_add(TokenList_t* tl, Token t) {
-	fprintf(stderr, "adding token: %d\n", t.start[0]);
-	if (tl->count >= tl->capacity) {
-		resize_tokens(tl);
-	}
-	tl->data[tl->count++] = t;
-}
-
-
-TokenList_t TokenList() {
-	return (TokenList_t) {
-		.capacity = TOKEN_LIST_INIT_CAPACITY,
-		.count = 0,
-		.data = malloc(sizeof(Token) * TOKEN_LIST_INIT_CAPACITY),
-	};
-}
-void TokenList_destroy(TokenList_t* tl){
-	free(tl->data);
 }

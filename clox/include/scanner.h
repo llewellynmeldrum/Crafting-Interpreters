@@ -7,6 +7,7 @@ typedef struct Scanner_t {
 	const char *start;
 	char *current;
 	int line;
+	size_t length;
 } Scanner_t;
 Scanner_t scanner;
 
@@ -44,8 +45,8 @@ typedef struct Token {
 	const char *start;
 	int length;
 	int line;
-} Token;
-Token ScanNextToken();
+} Token_t;
+Token_t ScanNextToken();
 
 // @-> dynamic list of Tokens, resize factor=2
 // @----|Methods|----
@@ -53,13 +54,14 @@ Token ScanNextToken();
 // @ deconstructor: TokenList_destroy(this)
 // @ add: void TokenList_add(this, tok)
 typedef struct TokenList_t {
-	Token *data;
+	Token_t *data;
 	size_t capacity;
 	size_t count;
 } TokenList_t;
 TokenList_t TokenList();
-void TokenList_add(TokenList_t* tl, Token t);
+void TokenList_add(TokenList_t* tl, Token_t t);
 void TokenList_destroy(TokenList_t* tl);
+void TokenList_Print(TokenList_t* tl);
 
 
 // @ returns heap allocated plaintext file contents (ascii)

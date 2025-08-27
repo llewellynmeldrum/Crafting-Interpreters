@@ -17,16 +17,26 @@ int main(int argc, char** argv) {
 	else if (argc == 1)  	runPrompt();
 }
 
+
 void run(char* source) {
+
 	scanner = Scanner(source);
-	Token t;
-	TokenList_t tok_list = TokenList();
-	while ((t = ScanNextToken() ).type != TOKEN_EOF) {
-		if (t.type == TOKEN_ERROR) {
+	Token_t token;
+	TokenList_t token_list = TokenList();
+
+	int tokcount = 0;
+	do {
+		fprintf(stderr, "Scanning for token (%d):\n", tokcount);
+		token = ScanNextToken();
+
+		if (token.type == TOKEN_ERROR)
 			PRINTF_FATAL_ERR("ScanNextToken() returned TOKEN_ERROR token!\n");
-		}
-		TokenList_add(&tok_list, t);
-	}
+
+		TokenList_add(&token_list, token);
+		tokcount++;
+	} while(token.type != TOKEN_EOF);
+	TokenList_Print(&token_list);
+	// tokens are added, with one last one for EOF
 }
 
 
@@ -60,7 +70,7 @@ void stripWhiteSpace(char *s) {
 		} else {
 			break;
 		}
-//		printf("end[%d]='%s'\n", 0, printVerboseChar(end[0]));
+		printf("end[%d]='%s'\n", 0, printVerboseChar(end[0]));
 	}
 }
 
