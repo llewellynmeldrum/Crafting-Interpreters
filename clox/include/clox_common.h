@@ -5,7 +5,7 @@
 	fprintf(stderr,fmt, ##__VA_ARGS__);\
 	fprintf(stderr,"\nexiting...\n");\
 	exit(EXIT_FAILURE);\
-	}while(0);
+	}while(0)
 
 #define PRINTF_ERR_LN(fmt, ...)do{\
 	fprintf(stderr,"Error on line %d:\n", scanner.line);\
@@ -17,6 +17,9 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+
+// Prints invisible chars like \n, \c as string literals
+char *printVerboseChar(const char c);
 
 #endif // COMMON_H
 
