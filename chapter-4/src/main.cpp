@@ -7,74 +7,47 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "Token.hpp"
-#define readUntilDelimiter(iss, buf, delim) getline(iss, buf, delim)
-#define containsOnlyWhiteSpace(str) str.find_first_not_of(' ')==str.npos
+
 using std::cout, std::cerr, std::cin;
 using std::vector;
-using std::istringstream;
-using std::ifstream;
-using std::ios;
+using std::istringstream, std::ifstream, std::ios;
 
-void BeginScriptingMode();
-void BeginFileMode(string filename);
+void Run(string line);
+void RunPrompt();
+void RunFile(string filename);
 
-void run(string line);
+boolean hadError = false;
+
 
 int main(int argc, char* argv[]){
-	Token* t = new Token();
-	cout << to_string(*t) << "\n";
-	if (argc>2){
-		cerr << "ERROR, usage: " << argv[0] << " <script>\n";
-		exit(EXIT_FAILURE);
-	} else if (argc == 2){
-		// file input 
-		string filename = argv[1];
-		BeginFileMode(filename);
-	} else { // argc==1
-		// start scripting mode
-		BeginScriptingMode();
-	}
+	if (argc>2){ cerr << "ERROR, usage: " << argv[0] << " <script>\n"; exit(EXIT_FAILURE); } 
 
-}
-
-vector<string> getTokens(string line, char delim, bool skipEmpty){
-	istringstream iss(line); // converts string to 'input stream'
-	vector<string> tokens;
-
-	string tok;
-	while (readUntilDelimiter(iss, tok, ' ')){
-		if (skipEmpty && containsOnlyWhiteSpace(tok)) continue;
-		else tokens.push_back(tok);
-	}
-
-
-	return tokens;
-}
-
-void run(string line){
-	cout << "Running line:" << line << "\n";
-	vector<string> tokens = getTokens(line, ' ', true);
-	printf("tokens (%lu):\n",tokens.size());
-	for (int i = 0 ; i<tokens.size(); i++){
-		printf("\t[%d]: ", i);
-		cout << tokens.at(i) << "\n";
-	}
-}
-
-void BeginScriptingMode(){
-	// print prompt, take user input
-	cout << "Beginning prompt mode, type a blank line to signal the end of your input." << "\n";
+	if (argc == 2) RunFile(argv[1]);
+	else	       RunPrompt();
 	
-	for (;;){
-		cout << "> ";
-		string line; 
-		getline(cin, line);
-		if (line.empty()) break;
-		run(line);
+}
+
+void report(int line, string where, string msg){
+	cerr << "[line "<< line << "] Error" << where << ": " << msg << "\n";
+	hadError = true;
+}
+
+void error (int line, string msg){
+	report(line, "", msg);
+}
+
+
+void Run(string line){
+	Scanner scanner = new Scanner(line);
+	vector<Token> tokens = scanner.scanTokens();
+
+	for (Token tok: tokens){
+		cout << to_string(tok) << "\n";
 	}
 }
 
-void BeginFileMode(string filename){
+
+void RunFile(string filename){
 	ifstream file;
 	file.open(filename, ios::in);
 
@@ -84,9 +57,23 @@ void BeginFileMode(string filename){
 	}
 	cout << "Opened file: " << filename << "\n";
 
-
 	string line;
 	while(getline(file, line)){
-		run(line);
+		Run(line);
+		if (hadError) exit(EXIT_FAILURE);
+	}
+}
+
+void RunPrompt(){
+	// print prompt, take user input
+	cout << "Beginning prompt mode, type a blank line to signal the end of your input." << "\n";
+	
+	for (;;){
+		cout << "> ";
+		string line; 
+		getline(cin, line);
+		if (line.empty()) break;
+		Run(line);
+		hadError = false;
 	}
 }
