@@ -6,6 +6,7 @@ CFLAGS := -Iinclude -Wall -Wextra -std=c2x
 SRC_DIR := src
 OBJ_DIR := build
 TARGET := clox 
+A:=
 
 all: $(TARGET) 
 COMP_BANNER:= "1. COMPILE SRC -> OBJ  > "
@@ -35,7 +36,7 @@ $(OBJ_DIR):
 	chalk bgWhiteBright red "CREATING DIRECTORIES"
 	@mkdir -p $@
 run: $(TARGET)
-	@./$(TARGET)
+	@./$(TARGET) $(A)
 
 clean:
 	@chalk bgWhiteBright red "REMOVING EXECUTABLES AND OBJECT FILES"
