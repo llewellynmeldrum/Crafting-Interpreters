@@ -20,19 +20,14 @@
 
 // @ checks if the next char == target, consumes a character
 bool Scanner_match(char target);
-
 // @ Advances the scanner, consuming a character
 char Scanner_advance();
-
 // @ self explanatory
 bool Scanner_isAtEnd();
-
 // @ checks next char, without consuming
 char Scanner_peek();
-
 // @ checks next, next char, without consuming
 char Scanner_peekNext();
-
 // @ consumes one char, checking if it matches target
 bool Scanner_match(const char target);
 
@@ -57,6 +52,7 @@ typedef enum {
 	SINGLE_LINE_COMMENT,
 	STRING_LITERAL,
 	NUMBER,
+	IDENTIFIER,
 } LookAhead_t;
 
 // *INDENT-OFF*
@@ -132,6 +128,18 @@ Token_t Scanner_lookahead(LookAhead_t target) {
 		};
 		return numtoken;
 
+	} else if (target==IDENTIFIER){
+		char* id_start = scanner.current-1;
+		while (isalpha(Scanner_peek()) || isdigit(Scanner_peek())){
+			Scanner_advance();
+		}
+		Token_t id_token = (Token_t){
+			.type = TOKEN_IDENTIFIER,
+			.start = id_start,
+			.length = scanner.current-id_start,
+			.line = scanner.line,
+		};
+		return id_token;
 	} else {
 		PRINTF_FATAL_ERR("Invalid lookahead target!");
 		return EMPTY_TOKEN();
@@ -161,7 +169,8 @@ Token_t Scanner_scanToken() {
 	case ';': return Token(TOKEN_SEMICOLON	, 1); break;
 	case '*': return Token(TOKEN_STAR	, 1); break;
 
-	// 1-2 char 
+	//*INDENT-ON*
+		// 1-2 char
 	case '!':
 		if (Scanner_match('='))
 			return Token(TOKEN_BANG_EQUAL, 2);
@@ -182,14 +191,13 @@ Token_t Scanner_scanToken() {
 			return Token(TOKEN_LESS_EQUAL, 2);
 		else return Token(TOKEN_LESS, 1);
 		break;
-	//
 	case '/':
 		return Scanner_lookahead(SINGLE_LINE_COMMENT);
 		break;
-	case '"': 
+	case '"':
 		return Scanner_lookahead(STRING_LITERAL);
 		break;
-	case ' ': 
+	case ' ':
 	case '\r':
 	case '\t':
 		return EMPTY_TOKEN();
@@ -199,11 +207,14 @@ Token_t Scanner_scanToken() {
 		return EMPTY_TOKEN();
 		break;
 	default:
-		if (isdigit(c)){
+		if (isdigit(c)) {
 			return Scanner_lookahead(NUMBER);
+		} else if(isalpha(c)) {
+			return Scanner_lookahead(IDENTIFIER);
 		} else {
-			error("Encountered unknown token near -->'"); log_verbose_ch(c);
-			fprintf(stderr,"'\n");
+			error("Encountered unknown token near -->'");
+			log_verbose_ch(c);
+			fprintf(stderr, "'\n");
 			return Token(TOKEN_ERROR, -1);
 			break;
 		}
@@ -213,7 +224,6 @@ Token_t Scanner_scanToken() {
 
 	error("FLOW CONTROL ERROR: Reached end of addToken execution.\n");
 	return Token(TOKEN_ERROR, -1);
-	//*INDENT-ON*
 }
 
 void printToken(const char* prefix, Token_t t) {
