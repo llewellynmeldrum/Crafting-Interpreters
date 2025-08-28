@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include "clox_common.h"
+#include "logging.h"
 
 #define ASCII_BUF_SZ 128
 #define UTF8_BUF_SZ 256

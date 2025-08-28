@@ -1,5 +1,6 @@
 #include <limits.h>
 #include <stdio.h>
+#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h> // getting filesize
@@ -10,9 +11,10 @@
 
 #include "logging.h" // should be last to overwrite log()
 
-#define MAX_TOKEN_LEN 2
+#define MAX_TOKEN_LEN 128
 #define TOKEN_LIST_INIT_CAPACITY 20
 // TODO: RESIZING IS BROKEN
+
 
 #define ERR_TOKEN (Token) { .type= TOKEN_ERROR }
 
@@ -28,12 +30,16 @@ bool Scanner_isAtEnd();
 // @ checks next char, without consuming
 char Scanner_peek();
 
+// @ checks next, next char, without consuming
+char Scanner_peekNext();
+
 // @ consumes one char, checking if it matches target
 bool Scanner_match(const char target);
 
 char *Token_to_string(Token_t t);
 
 
+void printToken(const char* prefix, Token_t t);
 
 
 Token_t Token(TokenType t, size_t l) {
@@ -44,8 +50,95 @@ Token_t Token(TokenType t, size_t l) {
 		.length = l,
 	};
 }
+#define EMPTY_TOKEN() 	Token(TOKEN_EMPTY, 0)
+#define EOF_TOKEN()	Token(TOKEN_EOF, -1)
 
-#define EMPTY_TOKEN() (Token_t){.type=TOKEN_EMPTY}
+typedef enum {
+	SINGLE_LINE_COMMENT,
+	STRING_LITERAL,
+	NUMBER,
+} LookAhead_t;
+
+// *INDENT-OFF*
+Token_t Scanner_lookahead(LookAhead_t target) {
+	if(target==SINGLE_LINE_COMMENT){
+		if (!Scanner_match('/')) {
+			return Token(TOKEN_SLASH, 1);
+
+		}
+		char comment_str[256];
+		int i = 0;
+		while (Scanner_peek() != '\n' && !Scanner_isAtEnd()) {
+			comment_str[i] = Scanner_peek();
+			i++;
+			Scanner_advance();
+		}
+		Token_t empty_tok = Token(TOKEN_EMPTY, 0);
+		comment_str[i] = '\0';
+		log("\tParsed comment: \"//%s\"\n",comment_str);
+		return empty_tok;
+	} else if (target==STRING_LITERAL){
+		char *str_start = scanner.current; // skip the opening quote (")
+		size_t str_len = 0;
+		while (Scanner_peek() != '"' && !Scanner_isAtEnd()) {
+			if (Scanner_peek() == '\n') scanner.line++;
+			Scanner_advance();
+			str_len++;
+		}
+		if (Scanner_isAtEnd()) {
+			char *str_contents = malloc(sizeof(char) * str_len + 1);
+			strncpy(str_contents, str_start, str_len + 1);
+			error("UNTERMINATED STRING: '%s'",str_contents);
+			return (Token_t) {
+				.type = TOKEN_EMPTY,
+				.start = str_start,
+				.line = scanner.line,
+				.length = 1,
+			};
+		}
+		char *str_contents = malloc(sizeof(char) * str_len + 1);
+		strncpy(str_contents, str_start, str_len + 1);
+
+		Token_t str_token = (Token_t) {
+			.type = TOKEN_STRING,
+			.start = str_contents,
+			.line = scanner.line,
+			.length = str_len,
+		};
+		Scanner_advance(); // consume the closing (")
+		return str_token;
+	} else if (target==NUMBER){
+		char* num_start = scanner.current-1; // include first digit 
+		while (isdigit(Scanner_peek())) Scanner_advance(); // consume digits 
+
+		if (Scanner_peek()=='.'){
+			if (isdigit(Scanner_peekNext()) == false){
+				// trailing '123.?'
+				error("TRAILING '.' detected!\n");
+				return EMPTY_TOKEN();
+			}
+
+			Scanner_advance();
+			while (isdigit(Scanner_peek())){
+				Scanner_advance(); // consume RHS of '.'
+			}
+		}
+		// so now, we have a number, potentially fractional.
+		Token_t numtoken = (Token_t){
+			.type = TOKEN_NUMBER,
+			.start = num_start,
+			.length = scanner.current-num_start,
+			.line = scanner.line,
+		};
+		return numtoken;
+
+	} else {
+		PRINTF_FATAL_ERR("Invalid lookahead target!");
+		return EMPTY_TOKEN();
+	}
+}
+
+// *INDENT-ON*
 // @ Creates a Token based on scanner.current and forward searching
 Token_t Scanner_scanToken() {
 
@@ -53,7 +146,7 @@ Token_t Scanner_scanToken() {
 	char c = Scanner_advance();
 	if (c=='\0'){
 		fprintf(stderr, "Scanner encountered EOF\n");
-		return Token(TOKEN_EOF, 1);
+		return EOF_TOKEN(); 
 	}
 	switch (c) {
 	// 1 char lexemes 
@@ -91,30 +184,11 @@ Token_t Scanner_scanToken() {
 		break;
 	//
 	case '/':
-		if (!Scanner_match('/')){
-			return Token(TOKEN_SLASH, 1);
-			break;
-		}
-		char comment_str[256];
-		comment_str[0]='\0';
-		int i = 0;
-		while (Scanner_peek()!='\n' && !Scanner_isAtEnd()){
-			comment_str[i] = Scanner_peek();
-			i++;
-			Scanner_advance(); // consume the character, unless its newline
-		}
-		{Token_t t = Token(TOKEN_EMPTY, 0);
-		comment_str[i] = '\0';
-				// change this its ugly VVV
-		log("\tParsed comment:");
-		log_verbose("//%s",comment_str);
-		logln();
-
-
-				return t;
-				break;
-		}
-
+		return Scanner_lookahead(SINGLE_LINE_COMMENT);
+		break;
+	case '"': 
+		return Scanner_lookahead(STRING_LITERAL);
+		break;
 	case ' ': 
 	case '\r':
 	case '\t':
@@ -125,12 +199,13 @@ Token_t Scanner_scanToken() {
 		return EMPTY_TOKEN();
 		break;
 	default:
-		{
-		char *verch = printVerboseChar(c);
-		error("Encountered unknown token near --> '%s'\n", verch);
-		free(verch);
-		return Token(TOKEN_ERROR, -1);
-		break;
+		if (isdigit(c)){
+			return Scanner_lookahead(NUMBER);
+		} else {
+			error("Encountered unknown token near -->'"); log_verbose_ch(c);
+			fprintf(stderr,"'\n");
+			return Token(TOKEN_ERROR, -1);
+			break;
 		}
 	}
 
@@ -163,9 +238,7 @@ Token_t ScanNextToken() {
 	do {
 		newtoken = Scanner_scanToken();
 		if (Scanner_isAtEnd()) {
-			return (Token_t) {
-				.type = TOKEN_EOF
-			};
+			return EOF_TOKEN();
 		}
 	} while(newtoken.type == TOKEN_EMPTY);
 	printToken("\tParsed token:", newtoken);
@@ -185,6 +258,11 @@ char Scanner_advance() {
 char Scanner_peek() {
 	if (Scanner_isAtEnd()) return '\0';
 	return *scanner.current;
+}
+char Scanner_peekNext() {
+	const char *scanner_end = (scanner.start + scanner.length);
+	if (scanner.current + 1 >= scanner_end) return '\0';
+	return *(scanner.current + 1);
 }
 
 bool Scanner_match(const char target) {
@@ -298,19 +376,17 @@ char* Token_to_string(Token_t t){
 	const bool printAddr = false;
 
 
-	if (t.length < 0){
-		PRINTF_FATAL_ERR("Tried to print token with L<%d (L=%d)",MAX_TOKEN_LEN,t.length);
-	} else if (t.length > MAX_TOKEN_LEN){
+	if (t.length > MAX_TOKEN_LEN){
 		PRINTF_FATAL_ERR("Tried to print token with L>%d (L=%d)",MAX_TOKEN_LEN,t.length);
 	}
 
 	char* s_TokenType = TokenType_to_string(t.type);
 	char* s_scannerResult = calloc(scannerResultSize, sizeof(char));
 
-	if (t.length == 0 ){
-		strcpy(s_scannerResult, "ZERO_LEN");
+	if (t.length == EOF ){
+		strcpy(s_scannerResult, "EOF");
 	} else {
-		strncpy(s_scannerResult, t.start, t.length);
+		sprintf(s_scannerResult, "'%.*s'",  t.length, t.start);
 	}
 
 	size_t TokenTypeSize = strlen(s_TokenType);

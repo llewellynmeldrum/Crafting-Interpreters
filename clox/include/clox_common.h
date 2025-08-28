@@ -7,6 +7,7 @@
 
 #define _DEBUG
 void LOG_VERBOSE_STR(const char* fmt, ...);
+void LOG_VERBOSE_CH(const char c);
 void LOG_DEFAULT_STR(const char* fmt, ...);
 
 #define PRINTF_FATAL_ERR(fmt, ...)do{\
@@ -16,8 +17,8 @@ void LOG_DEFAULT_STR(const char* fmt, ...);
 	}while(0)
 
 #define error(fmt, ...)do{\
-	fprintf(stderr,"[line %d] Error:\n", scanner.line);\
-	fprintf(stderr,fmt "\n", ##__VA_ARGS__);\
+	fprintf(stderr,"ERROR [line %d]: ", scanner.line);\
+	fprintf(stderr,fmt "", ##__VA_ARGS__);\
 	}while(0)
 
 #define MAX_LINE_LEN	1024
