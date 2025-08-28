@@ -24,7 +24,6 @@ int main(int argc, char** argv) {
 #ifdef _DEBUG
 	setlocale(LC_ALL, ""); // for printing wchar
 #endif
-	log_verbose("Testing verbose log\n");
 	if (argc > 2) PRINTF_FATAL_ERR("Error! Usage: %s [source.lox] | %s\n", PROG, PROG);
 	else if (argc == 2) 	runFile(argv[1]);
 	else if (argc == 1)  	runPrompt();
@@ -33,11 +32,11 @@ int main(int argc, char** argv) {
 
 void run(char* source) {
 
+	printf("PHASE 1: PARSING\n");
 	scanner = Scanner(source);
 	Token_t token;
 	TokenList_t token_list = TokenList();
 
-	int tokcount = 0;
 	do {
 //		fprintf(stderr, "Scanning for token (%d):\n", tokcount);
 		token = ScanNextToken();
@@ -46,7 +45,6 @@ void run(char* source) {
 			PRINTF_FATAL_ERR("ScanNextToken() returned TOKEN_ERROR token!\n");
 
 		TokenList_add(&token_list, token);
-		tokcount++;
 	} while(token.type != TOKEN_EOF);
 	TokenList_Print(&token_list);
 	// tokens are added, with one last one for EOF

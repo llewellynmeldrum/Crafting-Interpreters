@@ -106,7 +106,7 @@ Token_t Scanner_scanToken() {
 		{Token_t t = Token(TOKEN_EMPTY, 0);
 		comment_str[i] = '\0';
 				// change this its ugly VVV
-		log("Parsing comment:");
+		log("\tParsed comment:");
 		log_verbose("//%s",comment_str);
 		logln();
 
@@ -168,7 +168,7 @@ Token_t ScanNextToken() {
 			};
 		}
 	} while(newtoken.type == TOKEN_EMPTY);
-	printToken("\tTOKEN:", newtoken);
+	printToken("\tParsed token:", newtoken);
 	return newtoken;
 }
 
@@ -229,7 +229,8 @@ TokenList_t TokenList() {
 void TokenList_Print(TokenList_t* token_list) {
 	printf("Printing TokenList:\n");
 	for (size_t i = 0; i < token_list->count; i++) {
-		printToken("\t", token_list->data[i]);
+		printf("\t[%02zu]:", i);
+		printToken("", token_list->data[i]);
 	}
 	printf("\n");
 }
@@ -242,15 +243,15 @@ void TokenList_destroy(TokenList_t* tl) {
 char* TokenType_to_string(TokenType t){
 	char* s_TokenType = malloc(sizeof(char) * 32);
 	switch (t){
-		case TOKEN_LEFT_PAREN 	: strcpy(s_TokenType, "LEFT_PAREN");		break;
-		case TOKEN_RIGHT_PAREN	: strcpy(s_TokenType, "RIGHT_PAREN"); 		break;
-		case TOKEN_LEFT_BRACE 	: strcpy(s_TokenType, "LEFT_BRACE");		break;
-		case TOKEN_RIGHT_BRACE	: strcpy(s_TokenType, "RIGHT_BRACE"); 		break;
-		case TOKEN_COMMA      	: strcpy(s_TokenType, "COMMA");     		break;
-		case TOKEN_DOT        	: strcpy(s_TokenType, "DOT");       		break;
-		case TOKEN_MINUS      	: strcpy(s_TokenType, "MINUS");     		break;
-		case TOKEN_PLUS       	: strcpy(s_TokenType, "PLUS");      		break;
-		case TOKEN_SEMICOLON  	: strcpy(s_TokenType, "SEMICOLON"); 		break;
+		case TOKEN_LEFT_PAREN 	: strcpy(s_TokenType, "TOKEN_LEFT_PAREN");		break;
+		case TOKEN_RIGHT_PAREN	: strcpy(s_TokenType, "TOKEN_RIGHT_PAREN"); 		break;
+		case TOKEN_LEFT_BRACE 	: strcpy(s_TokenType, "TOKEN_LEFT_BRACE");		break;
+		case TOKEN_RIGHT_BRACE	: strcpy(s_TokenType, "TOKEN_RIGHT_BRACE"); 		break;
+		case TOKEN_COMMA      	: strcpy(s_TokenType, "TOKEN_COMMA");     		break;
+		case TOKEN_DOT        	: strcpy(s_TokenType, "TOKEN_DOT");       		break;
+		case TOKEN_MINUS      	: strcpy(s_TokenType, "TOKEN_MINUS");     		break;
+		case TOKEN_PLUS       	: strcpy(s_TokenType, "TOKEN_PLUS");      		break;
+		case TOKEN_SEMICOLON  	: strcpy(s_TokenType, "TOKEN_SEMICOLON"); 		break;
 		case TOKEN_STAR       	: strcpy(s_TokenType, "TOKEN_STAR");		break;
 		case TOKEN_BANG         : strcpy(s_TokenType, "TOKEN_BANG");		break;
 		case TOKEN_BANG_EQUAL   : strcpy(s_TokenType, "TOKEN_BANG_EQUAL");	break;
@@ -294,7 +295,7 @@ char* TokenType_to_string(TokenType t){
 char* Token_to_string(Token_t t){
 	const size_t scannerResultSize = 128;
 	const size_t copy_buf_sz = 256;
-	const bool verbose = true;
+	const bool printAddr = false;
 
 
 	if (t.length < 0){
@@ -307,16 +308,26 @@ char* Token_to_string(Token_t t){
 	char* s_scannerResult = calloc(scannerResultSize, sizeof(char));
 
 	if (t.length == 0 ){
-		strcpy(s_scannerResult, "SCANNER_ERROR_0_LENGTH");
+		strcpy(s_scannerResult, "ZERO_LEN");
 	} else {
 		strncpy(s_scannerResult, t.start, t.length);
 	}
 
+	size_t TokenTypeSize = strlen(s_TokenType);
+	char tabstr[8];
+	strcpy(tabstr,"\t");
+	if (TokenTypeSize<17){
+		strcpy(tabstr,"\t\t");
+	} 
+	if (TokenTypeSize<10){
+		strcpy(tabstr,"\t\t\t");
+	}
 	char* copy_buf = calloc(copy_buf_sz, sizeof(char));
-	if (verbose){
-		sprintf(copy_buf, "%s, '%s' (l=%d), %p | %p",s_TokenType, s_scannerResult,t.length,t.start,t.start+t.length);
+
+	if (printAddr){
+		sprintf(copy_buf, "%20s,'%s'\tL=%d, %p | %p",s_TokenType, s_scannerResult,t.length,t.start,t.start+t.length);
 	} else{
-		sprintf(copy_buf, "%s, '%s' (l=%d)",s_TokenType, s_scannerResult,t.length);
+		sprintf(copy_buf, "%20s,%10s\tL=%d",s_TokenType, s_scannerResult,t.length);
 	}
 	free(s_TokenType);
 	free(s_scannerResult);
