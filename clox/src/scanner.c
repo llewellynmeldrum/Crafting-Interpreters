@@ -1,56 +1,35 @@
-#include "scanner.h"
-#include "clox_common.h"
-
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
+#include <sys/stat.h> // getting filesize
+
+#include "scanner.h"
+#include "clox_common.h"
 
 #define MAX_TOKEN_LEN 2
 #define TOKEN_LIST_INIT_CAPACITY 20
-// TODO: RESIZING IS BROKEN BRO CANT EVEN MAKE A DYNAMIC ARRAY
+// TODO: RESIZING IS BROKEN
 
 #define ERR_TOKEN (Token) { .type= TOKEN_ERROR }
-#define UNKNOWN_TOKEN(Token) { TOKEN_EOF, tok_str, 0, scanner.line, }
 
+// @ checks if the next char == target, consumes a character
 bool Scanner_match(char target);
+
+// @ Advances the scanner, consuming a character
 char Scanner_advance();
+
+// @ self explanatory
 bool Scanner_isAtEnd();
+
+// @ checks next char, without consuming
 char Scanner_peek();
-bool Scanner_match(char target);
+
+// @ consumes one char, checking if it matches target
+bool Scanner_match(const char target);
 
 char *Token_to_string(Token_t t);
 
-size_t SYSCALL_FILESIZE(const char* filename) {
-	struct stat st;
-	stat(filename, &st);
-	return (size_t)(st.st_size);
-}
-
-// @ Can trigger FATAL_ERR (and exit)
-char *readFile(const char* filename) {
-	if (!filename)
-		PRINTF_FATAL_ERR("NULL string passed to readFile().");
-
-
-	FILE* inputFile = fopen(filename, "r");
-	if (!inputFile)
-		PRINTF_FATAL_ERR("Unable to open file '%s.'", filename);
-
-	size_t filesize = SYSCALL_FILESIZE(filename);
-	char *source = malloc(filesize * sizeof(char));
-	if (!source)
-		PRINTF_FATAL_ERR("Failed to allocate buffer for file '%s'.", filename);
-
-
-	size_t n_read = fread(source, sizeof(char), filesize, inputFile);
-	if (n_read != filesize)
-		PRINTF_FATAL_ERR("Failed to read '%s', read (%zu/%zu)B.", filename, n_read, filesize);
-
-	fclose(inputFile);
-	return source;
-}
 
 
 
@@ -122,7 +101,9 @@ Token_t Scanner_scanToken() {
 			Scanner_advance(); // consume the character, unless its newline
 		}
 		{Token_t t = Token(TOKEN_EMPTY, 0);
+				// change this its ugly VVV
 		fprintf(stderr,"Inside comment, found: '%s'\n",cmdstr);
+
 				return t;
 				break;
 		}
@@ -199,7 +180,7 @@ char Scanner_peek() {
 	return *scanner.current;
 }
 
-bool Scanner_match(char target) {
+bool Scanner_match(const char target) {
 	if (Scanner_isAtEnd()) return false;
 	if (*scanner.current != target) return false;
 
@@ -251,88 +232,120 @@ void TokenList_destroy(TokenList_t* tl) {
 }
 
 // *INDENT-OFF* - we use a lot of weird switch statements
+char* TokenType_to_string(TokenType t){
+	char* s_TokenType = malloc(sizeof(char) * 32);
+	switch (t){
+		case TOKEN_LEFT_PAREN 	: strcpy(s_TokenType, "LEFT_PAREN");		break;
+		case TOKEN_RIGHT_PAREN	: strcpy(s_TokenType, "RIGHT_PAREN"); 		break;
+		case TOKEN_LEFT_BRACE 	: strcpy(s_TokenType, "LEFT_BRACE");		break;
+		case TOKEN_RIGHT_BRACE	: strcpy(s_TokenType, "RIGHT_BRACE"); 		break;
+		case TOKEN_COMMA      	: strcpy(s_TokenType, "COMMA");     		break;
+		case TOKEN_DOT        	: strcpy(s_TokenType, "DOT");       		break;
+		case TOKEN_MINUS      	: strcpy(s_TokenType, "MINUS");     		break;
+		case TOKEN_PLUS       	: strcpy(s_TokenType, "PLUS");      		break;
+		case TOKEN_SEMICOLON  	: strcpy(s_TokenType, "SEMICOLON"); 		break;
+		case TOKEN_STAR       	: strcpy(s_TokenType, "TOKEN_STAR");		break;
+		case TOKEN_BANG         : strcpy(s_TokenType, "TOKEN_BANG");		break;
+		case TOKEN_BANG_EQUAL   : strcpy(s_TokenType, "TOKEN_BANG_EQUAL");	break;
+		case TOKEN_EQUAL        : strcpy(s_TokenType, "TOKEN_EQUAL");		break;
+		case TOKEN_EQUAL_EQUAL  : strcpy(s_TokenType, "TOKEN_EQUAL_EQUAL");	break;
+		case TOKEN_GREATER      : strcpy(s_TokenType, "TOKEN_GREATER");		break;
+		case TOKEN_GREATER_EQUAL: strcpy(s_TokenType, "TOKEN_GREATER_EQUAL");	break;
+		case TOKEN_LESS         : strcpy(s_TokenType, "TOKEN_LESS");		break;
+		case TOKEN_LESS_EQUAL   : strcpy(s_TokenType, "TOKEN_LESS_EQUAL");	break;
+		case TOKEN_IDENTIFIER   : strcpy(s_TokenType, "TOKEN_IDENTIFIER");	break;
+		case TOKEN_STRING       : strcpy(s_TokenType, "TOKEN_STRING");		break;
+		case TOKEN_NUMBER       : strcpy(s_TokenType, "TOKEN_NUMBER");		break;
+		case TOKEN_AND          : strcpy(s_TokenType, "TOKEN_AND");		break;
+		case TOKEN_CLASS        : strcpy(s_TokenType, "TOKEN_CLASS");		break;
+		case TOKEN_ELSE         : strcpy(s_TokenType, "TOKEN_ELSE");		break;
+		case TOKEN_FALSE        : strcpy(s_TokenType, "TOKEN_FALSE");		break;
+		case TOKEN_FOR          : strcpy(s_TokenType, "TOKEN_FOR");		break;
+		case TOKEN_FUN          : strcpy(s_TokenType, "TOKEN_FUN");		break;
+		case TOKEN_IF           : strcpy(s_TokenType, "TOKEN_IF");		break;
+		case TOKEN_NIL          : strcpy(s_TokenType, "TOKEN_NIL");		break;
+		case TOKEN_OR           : strcpy(s_TokenType, "TOKEN_OR");		break;
+		case TOKEN_PRINT        : strcpy(s_TokenType, "TOKEN_PRINT");		break;
+		case TOKEN_RETURN       : strcpy(s_TokenType, "TOKEN_RETURN");		break;
+		case TOKEN_SUPER        : strcpy(s_TokenType, "TOKEN_SUPER");		break;
+		case TOKEN_THIS         : strcpy(s_TokenType, "TOKEN_THIS");		break;
+		case TOKEN_TRUE         : strcpy(s_TokenType, "TOKEN_TRUE");		break;
+		case TOKEN_VAR          : strcpy(s_TokenType, "TOKEN_VAR");		break;
+		case TOKEN_WHILE        : strcpy(s_TokenType, "TOKEN_WHILE");		break;
+		case TOKEN_SLASH	: strcpy(s_TokenType, "TOKEN_SLASH");		break;
+		case TOKEN_ERROR        : strcpy(s_TokenType, "TOKEN_ERROR");		break;
+		case TOKEN_EOF          : strcpy(s_TokenType, "TOKEN_EOF");		break;
+		case TOKEN_EMPTY 	: strcpy(s_TokenType, "TOKEN_EMPTY");		break;
+		//--------------------------------------------------------------------------//
+		default			: strcpy(s_TokenType, "!!!!!!!!!!");
+					printf("ERROR! to_string() on unrecognized token.\n");
+					break;
+	}
+	return s_TokenType;
+}
+
 char* Token_to_string(Token_t t){
-	bool verbose = true;
-	char type_str[32];
+	const size_t scannerResultSize = 128;
+	const bool verbose = true;
 
-	switch (t.type){
-	// One character tokens.
-		case TOKEN_LEFT_PAREN 	: strcpy(type_str, "LEFT_PAREN");	break;
-		case TOKEN_RIGHT_PAREN	: strcpy(type_str, "RIGHT_PAREN"); 	break;
-		case TOKEN_LEFT_BRACE 	: strcpy(type_str, "LEFT_BRACE");	break;
-		case TOKEN_RIGHT_BRACE	: strcpy(type_str, "RIGHT_BRACE"); 	break;
-		case TOKEN_COMMA      	: strcpy(type_str, "COMMA");     	break;
-		case TOKEN_DOT        	: strcpy(type_str, "DOT");       	break;
-		case TOKEN_MINUS      	: strcpy(type_str, "MINUS");     	break;
-		case TOKEN_PLUS       	: strcpy(type_str, "PLUS");      	break;
-		case TOKEN_SEMICOLON  	: strcpy(type_str, "SEMICOLON"); 	break;
-		case TOKEN_STAR       	: strcpy(type_str, "TOKEN_STAR");	break;
-	// One to two char tokens
-		case TOKEN_BANG         : strcpy(type_str, "TOKEN_BANG");	break;
-		case TOKEN_BANG_EQUAL   : strcpy(type_str, "TOKEN_BANG_EQUAL");	break;
-		case TOKEN_EQUAL        : strcpy(type_str, "TOKEN_EQUAL");	break;
-		case TOKEN_EQUAL_EQUAL  : strcpy(type_str, "TOKEN_EQUAL_EQUAL");break;
-		case TOKEN_GREATER      : strcpy(type_str, "TOKEN_GREATER");	break;
-		case TOKEN_GREATER_EQUAL: strcpy(type_str, "TOKEN_GREATER_EQUAL");break;
-		case TOKEN_LESS         : strcpy(type_str, "TOKEN_LESS");	break;
-		case TOKEN_LESS_EQUAL   : strcpy(type_str, "TOKEN_LESS_EQUAL");	break;
-	// Literals 
-		case TOKEN_IDENTIFIER   : strcpy(type_str, "TOKEN_IDENTIFIER");	break;
-		case TOKEN_STRING       : strcpy(type_str, "TOKEN_STRING");	break;
-		case TOKEN_NUMBER       : strcpy(type_str, "TOKEN_NUMBER");	break;
-	// Keywords 
-		case TOKEN_AND          : strcpy(type_str, "TOKEN_AND");	break;
-		case TOKEN_CLASS        : strcpy(type_str, "TOKEN_CLASS");	break;
-		case TOKEN_ELSE         : strcpy(type_str, "TOKEN_ELSE");	break;
-		case TOKEN_FALSE        : strcpy(type_str, "TOKEN_FALSE");	break;
-		case TOKEN_FOR          : strcpy(type_str, "TOKEN_FOR");	break;
-		case TOKEN_FUN          : strcpy(type_str, "TOKEN_FUN");	break;
-		case TOKEN_IF           : strcpy(type_str, "TOKEN_IF");		break;
-		case TOKEN_NIL          : strcpy(type_str, "TOKEN_NIL");	break;
-		case TOKEN_OR           : strcpy(type_str, "TOKEN_OR");		break;
-		case TOKEN_PRINT        : strcpy(type_str, "TOKEN_PRINT");	break;
-		case TOKEN_RETURN       : strcpy(type_str, "TOKEN_RETURN");	break;
-		case TOKEN_SUPER        : strcpy(type_str, "TOKEN_SUPER");	break;
-		case TOKEN_THIS         : strcpy(type_str, "TOKEN_THIS");	break;
-		case TOKEN_TRUE         : strcpy(type_str, "TOKEN_TRUE");	break;
-		case TOKEN_VAR          : strcpy(type_str, "TOKEN_VAR");	break;
-		case TOKEN_WHILE        : strcpy(type_str, "TOKEN_WHILE");	break;
-		case TOKEN_SLASH	: strcpy(type_str, "TOKEN_SLASH");	break;
-	// Errors 
-		case TOKEN_ERROR        : strcpy(type_str, "TOKEN_ERROR");	break;
-		case TOKEN_EOF          : strcpy(type_str, "TOKEN_EOF");	break;
-		case TOKEN_EMPTY : strcpy(type_str, "TOKEN_EMPTY");	break;
 
-		default	:
-			printf("ERROR! to_string() on unrecognized token.\n");
-			break;
-	}
-
-	const size_t plaintext_sz = 128;
-	char plaintext[plaintext_sz];
-	for (size_t i = 0; i<plaintext_sz; i++){
-		plaintext[i] = '\0';
-	}
 	if (t.length < 0){
 		PRINTF_FATAL_ERR("Tried to print token with L<%d (L=%d)",MAX_TOKEN_LEN,t.length);
-	}
-	if (t.length > MAX_TOKEN_LEN){
+	} else if (t.length > MAX_TOKEN_LEN){
 		PRINTF_FATAL_ERR("Tried to print token with L>%d (L=%d)",MAX_TOKEN_LEN,t.length);
 	}
 
-	if (t.length ==0 ){
-		strcpy(plaintext, "");
-	} else {
-		strncpy(plaintext, t.start, t.length);
+	char* s_TokenType = TokenType_to_string(t.type);
+
+
+
+	char s_scannerResult[scannerResultSize];
+	for (size_t i = 0; i<scannerResultSize; i++){
+		s_scannerResult[i] = '\0';
 	}
 
-	char temp[256]; // sorta unsafe
-	if (verbose){sprintf(temp, "%s, '%s' (l=%d), %p | %p",type_str, plaintext,t.length,t.start,t.start+t.length);}
-	else{sprintf(temp, "%s, '%s' (l=%d)",type_str, plaintext,t.length);}
-	//
+	if (t.length == 0 ){
+		strcpy(s_scannerResult, "SCANNER_ERROR_CHECK_LENGTH");
+	} else {
+		strncpy(s_scannerResult, t.start, t.length);
+	}
 
+	char temp[256]; 
+	if (verbose){sprintf(temp, "%s, '%s' (l=%d), %p | %p",s_TokenType, s_scannerResult,t.length,t.start,t.start+t.length);}
+	else{sprintf(temp, "%s, '%s' (l=%d)",s_TokenType, s_scannerResult,t.length);}
+	free(s_TokenType);
 
 	char* buf = malloc(strlen(temp)+1);
 	strcpy(buf,temp);
 	return buf;
+}
+
+size_t SYSCALL_FILESIZE(const char* filename) {
+	struct stat st;
+	stat(filename, &st);
+	return (size_t)(st.st_size);
+}
+
+// @ Can trigger FATAL_ERR (and exit)
+char *readFile(const char* filename) {
+	if (!filename)
+		PRINTF_FATAL_ERR("NULL string passed to readFile().");
+
+
+	FILE* inputFile = fopen(filename, "r");
+	if (!inputFile)
+		PRINTF_FATAL_ERR("Unable to open file '%s.'", filename);
+
+	size_t filesize = SYSCALL_FILESIZE(filename);
+	char *source = malloc(filesize * sizeof(char));
+	if (!source)
+		PRINTF_FATAL_ERR("Failed to allocate buffer for file '%s'.", filename);
+
+
+	size_t n_read = fread(source, sizeof(char), filesize, inputFile);
+	if (n_read != filesize)
+		PRINTF_FATAL_ERR("Failed to read '%s', read (%zu/%zu)B.", filename, n_read, filesize);
+
+	fclose(inputFile);
+	return source;
 }
