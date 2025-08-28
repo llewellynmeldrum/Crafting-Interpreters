@@ -3,6 +3,7 @@
 #include "clox_common.h"
 
 
+
 typedef struct Scanner_t {
 	const char *start;
 	char *current;

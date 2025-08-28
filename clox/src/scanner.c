@@ -7,6 +7,9 @@
 #include "scanner.h"
 #include "clox_common.h"
 
+
+#include "logging.h" // should be last to overwrite log()
+
 #define MAX_TOKEN_LEN 2
 #define TOKEN_LIST_INIT_CAPACITY 20
 // TODO: RESIZING IS BROKEN
@@ -92,17 +95,21 @@ Token_t Scanner_scanToken() {
 			return Token(TOKEN_SLASH, 1);
 			break;
 		}
-		char cmdstr[256];
-		cmdstr[0]='\0';
+		char comment_str[256];
+		comment_str[0]='\0';
+		int i = 0;
 		while (Scanner_peek()!='\n' && !Scanner_isAtEnd()){
-			char* vb = printVerboseChar(Scanner_peek());
-			strcat(cmdstr,vb);
-			free(vb);
+			comment_str[i] = Scanner_peek();
+			i++;
 			Scanner_advance(); // consume the character, unless its newline
 		}
 		{Token_t t = Token(TOKEN_EMPTY, 0);
+		comment_str[i] = '\0';
 				// change this its ugly VVV
-		fprintf(stderr,"Inside comment, found: '%s'\n",cmdstr);
+		log("Parsing comment:");
+		log_verbose("//%s",comment_str);
+		logln();
+
 
 				return t;
 				break;
@@ -286,6 +293,7 @@ char* TokenType_to_string(TokenType t){
 
 char* Token_to_string(Token_t t){
 	const size_t scannerResultSize = 128;
+	const size_t copy_buf_sz = 256;
 	const bool verbose = true;
 
 
@@ -296,28 +304,28 @@ char* Token_to_string(Token_t t){
 	}
 
 	char* s_TokenType = TokenType_to_string(t.type);
-
-
-
-	char s_scannerResult[scannerResultSize];
-	for (size_t i = 0; i<scannerResultSize; i++){
-		s_scannerResult[i] = '\0';
-	}
+	char* s_scannerResult = calloc(scannerResultSize, sizeof(char));
 
 	if (t.length == 0 ){
-		strcpy(s_scannerResult, "SCANNER_ERROR_CHECK_LENGTH");
+		strcpy(s_scannerResult, "SCANNER_ERROR_0_LENGTH");
 	} else {
 		strncpy(s_scannerResult, t.start, t.length);
 	}
 
-	char temp[256]; 
-	if (verbose){sprintf(temp, "%s, '%s' (l=%d), %p | %p",s_TokenType, s_scannerResult,t.length,t.start,t.start+t.length);}
-	else{sprintf(temp, "%s, '%s' (l=%d)",s_TokenType, s_scannerResult,t.length);}
+	char* copy_buf = calloc(copy_buf_sz, sizeof(char));
+	if (verbose){
+		sprintf(copy_buf, "%s, '%s' (l=%d), %p | %p",s_TokenType, s_scannerResult,t.length,t.start,t.start+t.length);
+	} else{
+		sprintf(copy_buf, "%s, '%s' (l=%d)",s_TokenType, s_scannerResult,t.length);
+	}
 	free(s_TokenType);
+	free(s_scannerResult);
 
-	char* buf = malloc(strlen(temp)+1);
-	strcpy(buf,temp);
-	return buf;
+	char* ret_buf = malloc(strlen(copy_buf)+1);
+	strcpy(ret_buf,copy_buf);
+
+	free(copy_buf);
+	return ret_buf;
 }
 
 size_t SYSCALL_FILESIZE(const char* filename) {

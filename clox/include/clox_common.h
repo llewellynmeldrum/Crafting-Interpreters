@@ -5,6 +5,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#define _DEBUG
+void LOG_VERBOSE_STR(const char* fmt, ...);
+void LOG_DEFAULT_STR(const char* fmt, ...);
 
 #define PRINTF_FATAL_ERR(fmt, ...)do{\
 	fprintf(stderr,fmt, ##__VA_ARGS__);\

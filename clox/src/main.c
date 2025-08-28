@@ -1,8 +1,10 @@
+#include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "clox_common.h"
+#include "logging.h"
 #include "scanner.h"
 #define PROG "clox"
 
@@ -19,6 +21,10 @@ void printverbstr(const char* str) {
 }
 
 int main(int argc, char** argv) {
+#ifdef _DEBUG
+	setlocale(LC_ALL, ""); // for printing wchar
+#endif
+	log_verbose("Testing verbose log\n");
 	if (argc > 2) PRINTF_FATAL_ERR("Error! Usage: %s [source.lox] | %s\n", PROG, PROG);
 	else if (argc == 2) 	runFile(argv[1]);
 	else if (argc == 1)  	runPrompt();
