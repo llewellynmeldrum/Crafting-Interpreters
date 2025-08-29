@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <ctype.h>
 #include "clox_common.h"
 #include "logging.h"
 
@@ -9,6 +10,20 @@
 #define UTF8_BUF_SZ 256
 
 #define UTF8_SP u8"\u2423" // OPEN BOX
+
+bool isDigit(int c) { // consistency sake
+	return isdigit(c);
+}
+
+bool isAlpha(const char c) { // includes underscores
+	return 	( c >= 'a' && c <= 'z' ) ||
+	        ( c >= 'A' && c <= 'Z' ) ||
+	        ( c == '_');
+}
+
+bool isAlphaNumeric(const char c) {
+	return isAlpha(c) || isDigit(c);
+}
 
 char *ascii_to_utf8(const char c) {
 	const int max_utf8_sz = 4;

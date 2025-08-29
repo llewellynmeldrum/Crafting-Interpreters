@@ -1,3 +1,4 @@
+#include <limits.h>
 #include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,6 +7,7 @@
 #include "clox_common.h"
 #include "logging.h"
 #include "scanner.h"
+#include "hashtable.h"
 #define PROG "clox"
 
 
@@ -20,6 +22,7 @@ void printverbstr(const char* str) {
 	}
 }
 
+
 int main(int argc, char** argv) {
 #ifdef _DEBUG
 	setlocale(LC_ALL, ""); // for printing wchar
@@ -33,12 +36,11 @@ int main(int argc, char** argv) {
 void run(char* source) {
 
 	printf("PHASE 1: PARSING\n");
-	scanner = Scanner(source);
+	scanner = InitScanner(source);
 	Token_t token;
 	TokenList_t token_list = TokenList();
 
 	do {
-//		fprintf(stderr, "Scanning for token (%d):\n", tokcount);
 		token = ScanNextToken();
 
 		if (token.type == TOKEN_ERROR)
@@ -48,6 +50,7 @@ void run(char* source) {
 	} while(token.type != TOKEN_EOF);
 	TokenList_Print(&token_list);
 	// tokens are added, with one last one for EOF
+
 }
 
 

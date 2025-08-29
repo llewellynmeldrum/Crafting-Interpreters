@@ -13,7 +13,7 @@ typedef struct Scanner_t {
 Scanner_t scanner;
 
 // # Scanner_t Constructor (.h)
-Scanner_t Scanner(char* source);
+Scanner_t InitScanner(char* source);
 
 typedef enum {
 	// Single-character tokens.
@@ -70,6 +70,24 @@ void TokenList_Print(TokenList_t* tl);
 // @ Can trigger FATAL_ERR (and exit)
 char *readFile(const char* filename);
 
+typedef enum {
+	AND,
+	CLASS,
+	ELSE,
+	FALSE,
+	FOR,
+	FUN,
+	IF,
+	NIL,
+	OR,
+	PRINT,
+	RETURN,
+	SUPER,
+	THIS,
+	TRUE,
+	VAR,
+	WHILE,
+} KEYWORD;
 //char* token_to_str(Token tok, char* str){ }
 
 #endif // SCANNER_H

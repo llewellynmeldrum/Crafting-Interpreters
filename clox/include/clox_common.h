@@ -23,6 +23,10 @@ void LOG_DEFAULT_STR(const char* fmt, ...);
 
 #define MAX_LINE_LEN	1024
 
+bool isDigit(int c);
+bool isAlpha(const char c);
+bool isAlphaNumeric(const char c);
+
 // Prints invisible chars like \n, \c as string literals
 char *printVerboseChar(const char c);
 

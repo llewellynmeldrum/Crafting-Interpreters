@@ -7,13 +7,13 @@
 
 #include "scanner.h"
 #include "clox_common.h"
+#include "hashtable.h"
 
 
 #include "logging.h" // should be last to overwrite log()
 
 #define MAX_TOKEN_LEN 128
-#define TOKEN_LIST_INIT_CAPACITY 20
-// TODO: RESIZING IS BROKEN
+#define TOKEN_LIST_INIT_CAPACITY 20 // TODO: RESIZING IS BROKEN
 
 
 #define ERR_TOKEN (Token) { .type= TOKEN_ERROR }
@@ -32,10 +32,13 @@ char Scanner_peekNext();
 bool Scanner_match(const char target);
 
 char *Token_to_string(Token_t t);
-
-
 void printToken(const char* prefix, Token_t t);
 
+
+HashTable_t InitKeywordsMap();
+void DestroyKeywordsMap(HashTable_t ht);
+#define Keywords_get(keyword) HashTable_get(&Keywords, keyword)
+HashTable_t Keywords;
 
 Token_t Token(TokenType t, size_t l) {
 	return(Token_t) {
@@ -105,17 +108,19 @@ Token_t Scanner_lookahead(LookAhead_t target) {
 		return str_token;
 	} else if (target==NUMBER){
 		char* num_start = scanner.current-1; // include first digit 
-		while (isdigit(Scanner_peek())) Scanner_advance(); // consume digits 
+		while (isDigit(Scanner_peek())){
+			Scanner_advance(); // consume digits 
+		}
 
 		if (Scanner_peek()=='.'){
-			if (isdigit(Scanner_peekNext()) == false){
+			if (isDigit(Scanner_peekNext()) == false){
 				// trailing '123.?'
 				error("TRAILING '.' detected!\n");
 				return EMPTY_TOKEN();
 			}
 
 			Scanner_advance();
-			while (isdigit(Scanner_peek())){
+			while (isDigit(Scanner_peek())){
 				Scanner_advance(); // consume RHS of '.'
 			}
 		}
@@ -129,17 +134,28 @@ Token_t Scanner_lookahead(LookAhead_t target) {
 		return numtoken;
 
 	} else if (target==IDENTIFIER){
-		char* id_start = scanner.current-1;
-		while (isalpha(Scanner_peek()) || isdigit(Scanner_peek())){
+		char* start = scanner.current-1;
+		while (isAlpha(Scanner_peek()) || isDigit(Scanner_peek())){
 			Scanner_advance();
 		}
-		Token_t id_token = (Token_t){
-			.type = TOKEN_IDENTIFIER,
-			.start = id_start,
-			.length = scanner.current-id_start,
+		// max identifier length?
+		int len = scanner.current-start;
+		char *potentialKeyword = calloc(len+1,sizeof(char));
+		strncpy(potentialKeyword, start, len);
+
+		TokenType type = Keywords_get(potentialKeyword);
+		if (type == HMAP_NO_ENTRY){
+			type = TOKEN_IDENTIFIER;
+		}
+
+		Token_t token = (Token_t){
+			.type = type,
+			.start = start,
+			.length = len,
 			.line = scanner.line,
 		};
-		return id_token;
+
+		return token;
 	} else {
 		PRINTF_FATAL_ERR("Invalid lookahead target!");
 		return EMPTY_TOKEN();
@@ -207,9 +223,9 @@ Token_t Scanner_scanToken() {
 		return EMPTY_TOKEN();
 		break;
 	default:
-		if (isdigit(c)) {
+		if (isDigit(c)) {
 			return Scanner_lookahead(NUMBER);
-		} else if(isalpha(c)) {
+		} else if(isAlpha(c)) { // identifiers cannot begin with numbers
 			return Scanner_lookahead(IDENTIFIER);
 		} else {
 			error("Encountered unknown token near -->'");
@@ -232,7 +248,8 @@ void printToken(const char* prefix, Token_t t) {
 	free(tokstr);
 }
 
-Scanner_t Scanner(char* source) {
+Scanner_t InitScanner(char* source) {
+	Keywords = InitKeywordsMap();
 	return (Scanner_t) {
 		.start = source,
 		.current = source,
@@ -453,4 +470,33 @@ char *readFile(const char* filename) {
 
 	fclose(inputFile);
 	return source;
+}
+
+HashTable_t InitKeywordsMap(){
+	HashTable_t ht = HashTable_create();
+	HashTable_put(&ht, "and",    TOKEN_AND);
+	HashTable_put(&ht, "class",  TOKEN_CLASS);
+	HashTable_put(&ht, "else",   TOKEN_ELSE);
+	HashTable_put(&ht, "false",  TOKEN_FALSE);
+	HashTable_put(&ht, "for",    TOKEN_FOR);
+	HashTable_put(&ht, "fun",    TOKEN_FUN);
+	HashTable_put(&ht, "if",     TOKEN_IF);
+	HashTable_put(&ht, "nil",    TOKEN_NIL);
+	HashTable_put(&ht, "or",     TOKEN_OR);
+	HashTable_put(&ht, "print",  TOKEN_PRINT);
+	HashTable_put(&ht, "return", TOKEN_RETURN);
+	HashTable_put(&ht, "super",  TOKEN_SUPER);
+	HashTable_put(&ht, "this",   TOKEN_THIS);
+	HashTable_put(&ht, "true",   TOKEN_TRUE);
+	HashTable_put(&ht, "var",    TOKEN_VAR);
+	HashTable_put(&ht, "while",  TOKEN_WHILE);
+	return ht;
+}
+void DestroyKeywordsMap(HashTable_t ht) {
+	for (size_t i = 0; i < ht.capacity; i++) {
+		if ((int)ht.pairs[i].value != INT_MIN) {
+			free(ht.pairs[i].key);
+		}
+	}
+	free(ht.pairs);
 }
