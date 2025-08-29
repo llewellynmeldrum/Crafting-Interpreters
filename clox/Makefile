@@ -1,7 +1,7 @@
 # testing subtree commits
 SHELL:= /bin/zsh
 C := gcc
-CFLAGS := -Iinclude -Wall -Wextra -std=c2x
+CFLAGS := -Iinclude -Wall -Wextra -std=c2x -g
 
 SRC_DIR := src
 OBJ_DIR := build
